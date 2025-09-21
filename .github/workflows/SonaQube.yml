@@ -1,4 +1,4 @@
-name: SonarQube Analysis
+name: Maven CI with SonarQube
 
 on:
   push:
@@ -7,37 +7,68 @@ on:
   pull_request:
 
 jobs:
-  sonar:
+  build-and-sonarqube:
     runs-on: ubuntu-latest
+    env:
+      SONAR_HOST_URL: http:// 13.235.55.125:9000
+      SONAR_TOKEN: 46b5cb14fda12d7a5402fded43a4ccaed8192a11
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-        with:
-          repository: CloudTechDevOps/project-1-maven-jenkins-CICD-docker-eks-
-          # token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}  # if private repo, add PAT here
+      # 1️⃣ Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      # 2️⃣ Set up Java 11
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 11
 
-      - name: Cache SonarQube packages
+      # 3️⃣ Cache Maven dependencies
+      - name: Cache Maven dependencies
         uses: actions/cache@v3
         with:
-          path: ~/.sonar/cache
-          key: ${{ runner.os }}-sonar
-          restore-keys: ${{ runner.os }}-sonar
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
 
+      # 4️⃣ Build project
       - name: Build with Maven
-        run: mvn -B clean verify
+        run: mvn clean install
 
-      - name: SonarQube Scan
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        run: mvn -B sonar:sonar \
-              -Dsonar.projectKey=project-1-maven-jenkins-CICD-docker-eks- \
-              -Dsonar.host.url=${SONAR_HOST_URL} \
-              -Dsonar.login=${SONAR_TOKEN}
+      # 5️⃣ Run SonarQube Analysis
+      - name: Run SonarQube analysis
+        run: |
+          mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
+            -Dsonar.projectKey=project-1 \
+            -Dsonar.host.url=$SONAR_HOST_URL \
+            -Dsonar.login=$SONAR_TOKEN
+
+      # 6️⃣ Check Quality Gate Status
+      - name: Check Quality Gate Status
+        run: |
+          PROJECT_KEY="maven_project"
+          ENCODED_KEY=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$PROJECT_KEY'''))")
+          
+          RESPONSE=$(curl -s -u $SONAR_TOKEN: "$SONAR_HOST_URL/api/qualitygates/project_status?projectKey=$ENCODED_KEY")
+          echo "API Response: $RESPONSE"
+
+          # Validate JSON
+          echo "$RESPONSE" | jq empty
+          if [ $? -ne 0 ]; then
+            echo "❌ API did not return valid JSON. Check SONAR_HOST_URL, SONAR_TOKEN, and PROJECT_KEY."
+            exit 1
+          fi
+
+          STATUS=$(echo "$RESPONSE" | jq -r '.projectStatus.status')
+          echo "Quality Gate Status: $STATUS"
+
+          if [ "$STATUS" != "OK" ]; then
+            echo "❌ Quality Gate failed!"
+            exit 1
+          else
+            echo "✅ Quality Gate passed!"
+          fi
+        shell: bash
