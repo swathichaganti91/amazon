@@ -1,4 +1,4 @@
-name: Maven CI with SonarQube
+name: SonarQube Analysis
 
 on:
   push:
@@ -7,74 +7,75 @@ on:
   pull_request:
 
 jobs:
-  build-and-sonarqube:
+  sonar:
     runs-on: ubuntu-latest
-    env:
-      SONAR_HOST_URL: http://13.235.55.125:9000
-      SONAR_TOKEN: ${{ secrets.SONARTOKEN }}
-
+    
     steps:
-      # 1️⃣ Clone the external Maven project (private repo)
-      - name: Clone external Maven project
-        uses: actions/checkout@v2  # Use v2 for external repo cloning
-        with:
-          repository: CloudTechDevOps/project-1-maven-jenkins-CICD-docker-eks-
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}  # Must have repo access
-          path: project
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # 2️⃣ Set up Java 11
-      - name: Set up JDK 11
-        uses: actions/setup-java@v3
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
-      # 3️⃣ Cache Maven dependencies
-      - name: Cache Maven dependencies
+      - name: Cache SonarQube packages
         uses: actions/cache@v3
         with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('project/**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
 
-      # 4️⃣ Build the project
       - name: Build with Maven
+        run: mvn -B clean verify
+
+      - name: SonarQube Scan
+        env:
+          SONAR_TOKEN: ${{ secrets.name: SonarQube Analysis
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  sonar:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Cache SonarQube packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Build with Maven
+        run: mvn -B clean verify
+
+      - name: SonarQube Scan
+        env:
+          SONAR_TOKEN: ${{ secrets.SONARTOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_URL_HOST }}
         run: |
-          cd project
-          mvn clean install
-
-      # 5️⃣ Run SonarQube analysis
-      - name: Run SonarQube analysis
+          mvn -B sonar:sonar \
+            -Dsonar.projectKey=my-github-project \
+            -Dsonar.host.url=${SONAR_URL_HOST} \
+            -Dsonar.login=${SONARTOKEN}}}
+          SONAR_HOST_URL: ${{ secrets.SONAR_URL_HOST }}
         run: |
-          cd project
-          mvn sonar:sonar \
-            -Dsonar.projectKey=project-1-maven-jenkins-CICD-docker-eks- \
-            -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
-            -Dsonar.login=${{ env.SONAR_TOKEN }}
-
-      # 6️⃣ Check Quality Gate Status
-      - name: Check Quality Gate Status
-        run: |
-          PROJECT_KEY="project-1-maven-jenkins-CICD-docker-eks-"
-          ENCODED_KEY=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$PROJECT_KEY'''))")
-
-          RESPONSE=$(curl -s -u $SONAR_TOKEN: "$SONAR_HOST_URL/api/qualitygates/project_status?projectKey=$ENCODED_KEY")
-          echo "API Response: $RESPONSE"
-
-          echo "$RESPONSE" | jq empty
-          if [ $? -ne 0 ]; then
-            echo "❌ API did not return valid JSON. Check SONAR_HOST_URL, SONAR_TOKEN, and PROJECT_KEY."
-            exit 1
-          fi
-
-          STATUS=$(echo "$RESPONSE" | jq -r '.projectStatus.status')
-          echo "Quality Gate Status: $STATUS"
-
-          if [ "$STATUS" != "OK" ]; then
-            echo "❌ Quality Gate failed!"
-            exit 1
-          else
-            echo "✅ Quality Gate passed!"
-          fi
-        shell: bash
+          mvn -B sonar:sonar \
+            -Dsonar.projectKey=my-github-project \
+            -Dsonar.host.url=${SONAR_URL_HOST} \
+            -Dsonar.login=${SONARTOKEN}
