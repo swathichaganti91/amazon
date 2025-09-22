@@ -14,12 +14,12 @@ jobs:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
     steps:
-      # 1️⃣ Clone the actual Maven project from external repo
+      # 1️⃣ Clone the external Maven project (private repo)
       - name: Clone external Maven project
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2  # Use v2 for external repo cloning
         with:
           repository: CloudTechDevOps/project-1-maven-jenkins-CICD-docker-eks-
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}  # if the repo is private
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}  # Must have repo access
           path: project
 
       # 2️⃣ Set up Java 11
@@ -34,7 +34,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-maven-${{ hashFiles('project/**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
 
