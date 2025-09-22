@@ -9,7 +9,7 @@ on:
 jobs:
   sonar:
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -36,6 +36,6 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_URL_HOST }}
         run: |
           mvn -B sonar:sonar \
-            -Dsonar.projectKey=my-github-project \
+            -Dsonar.projectKey=com.example.maven-project:maven-project \
             -Dsonar.host.url=${SONAR_HOST_URL} \
             -Dsonar.login=${SONAR_TOKEN}
